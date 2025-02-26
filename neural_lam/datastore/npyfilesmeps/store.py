@@ -26,11 +26,11 @@ from xarray.core.dataarray import DataArray
 from ..base import BaseRegularGridDatastore, CartesianGridShape
 from .config import NpyDatastoreConfig
 
-STATE_FILENAME_FORMAT = "nwp_{analysis_time:%Y%m%d%H}_mbr{member_id:03d}.npy"
+STATE_FILENAME_FORMAT = "nwp_{analysis_time:%Y%m%d%H%M}_mbr{member_id:03d}.npy"
 TOA_SW_DOWN_FLUX_FILENAME_FORMAT = (
-    "nwp_toa_downwelling_shortwave_flux_{analysis_time:%Y%m%d%H}.npy"
+    "nwp_toa_downwelling_shortwave_flux_{analysis_time:%Y%m%d%H%M}.npy"
 )
-OPEN_WATER_FILENAME_FORMAT = "wtr_{analysis_time:%Y%m%d%H}.npy"
+OPEN_WATER_FILENAME_FORMAT = "wtr_{analysis_time:%Y%m%d%H%M}.npy"
 
 
 def _load_np(fp, add_feature_dim, feature_dim_mask=None):
@@ -199,9 +199,7 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
         """
         return self._config
 
-    def get_dataarray(
-        self, category: str, split: str, standardize: bool = False
-    ) -> DataArray:
+    def get_dataarray(self, category: str, split: str) -> DataArray:
         """
         Get the data array for the given category and split of data. If the
         category is 'state', the data array will be a concatenation of the data
@@ -216,8 +214,6 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
         split : str
             The dataset split to load the data for. One of 'train', 'val', or
             'test'.
-        standardize: bool
-            If the dataarray should be returned standardized
 
         Returns
         -------
@@ -266,6 +262,7 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
             da_forecast_time = (
                 da.analysis_time + da.elapsed_forecast_duration
             ).chunk({"elapsed_forecast_duration": 1})
+            #print("Check", da_forecast_time)
             da_datetime_forcing_features = self._calc_datetime_forcing_features(
                 da_time=da_forecast_time
             )
@@ -306,9 +303,6 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
 
         dim_order = self.expected_dim_order(category=category)
         da = da.transpose(*dim_order)
-
-        if standardize:
-            return self._standardize_datarray(da, category=category)
 
         return da
 
@@ -545,11 +539,14 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
         return times
 
     def _calc_datetime_forcing_features(self, da_time: xr.DataArray):
+        da_minute_angle = da_time.dt.minute / 60 * 2 * np.pi
         da_hour_angle = da_time.dt.hour / 12 * np.pi
         da_year_angle = da_time.dt.dayofyear / 365 * 2 * np.pi
 
         da_datetime_forcing = xr.concat(
             (
+                np.sin(da_minute_angle),
+                np.cos(da_minute_angle),
                 np.sin(da_hour_angle),
                 np.cos(da_hour_angle),
                 np.sin(da_year_angle),
@@ -559,6 +556,8 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
         )
         da_datetime_forcing = (da_datetime_forcing + 1) / 2  # Rescale to [0,1]
         da_datetime_forcing["feature"] = [
+            "sin_minu",
+            "cos_minu",
             "sin_hour",
             "cos_hour",
             "sin_year",
@@ -593,6 +592,8 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
             return [
                 "toa_downwelling_shortwave_flux",
                 "open_water_fraction",
+                "sin_minu",
+                "cos_minu",
                 "sin_hour",
                 "cos_hour",
                 "sin_year",
@@ -706,10 +707,9 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
     def get_standardization_dataarray(self, category: str) -> xr.Dataset:
         """Return the standardization dataarray for the given category. This
         should contain a `{category}_mean` and `{category}_std` variable for
-        each variable in the category.
-        For `category=="state"`, the dataarray should also contain a
-        `state_diff_mean_standardized` and `state_diff_std_standardized`
-        variable for the one-step differences of the state variables.
+        each variable in the category. For `category=="state"`, the dataarray
+        should also contain a `state_diff_mean` and `state_diff_std` variable
+        for the one- step differences of the state variables.
 
         Parameters
         ----------
@@ -751,8 +751,8 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
             flux_mean, flux_std = flux_stats
             # manually add hour sin/cos and day-of-year sin/cos stats for now
             # the mean/std for open_water_fraction is hardcoded for now
-            mean_values = np.array([flux_mean, 0.0, 0.0, 0.0, 0.0, 0.0])
-            std_values = np.array([flux_std, 1.0, 1.0, 1.0, 1.0, 1.0])
+            mean_values = np.array([flux_mean, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            std_values = np.array([flux_std, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0])
 
         elif category == "static":
             da_static = self.get_dataarray(category="static", split="train")
@@ -770,14 +770,8 @@ class NpyFilesDatastoreMEPS(BaseRegularGridDatastore):
         }
 
         if mean_diff_values is not None and std_diff_values is not None:
-            variables["state_diff_mean_standardized"] = (
-                feature_dim_name,
-                mean_diff_values,
-            )
-            variables["state_diff_std_standardized"] = (
-                feature_dim_name,
-                std_diff_values,
-            )
+            variables["state_diff_mean"] = (feature_dim_name, mean_diff_values)
+            variables["state_diff_std"] = (feature_dim_name, std_diff_values)
 
         ds_norm = xr.Dataset(
             variables,

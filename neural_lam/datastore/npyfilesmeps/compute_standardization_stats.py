@@ -168,8 +168,8 @@ def main(
         torch.cuda.set_device(device) if torch.cuda.is_available() else None
 
     # Setting this to the original value of the Oskarsson et al. paper (2023)
-    # 65 forecast steps - 2 initial steps = 63
-    ar_steps = 63
+    # 97 forecast steps - 2 initial steps = 95
+    ar_steps = 95
     ds = WeatherDataset(
         datastore=datastore,
         split="train",
@@ -299,7 +299,7 @@ def main(
         num_workers=n_workers,
         sampler=sampler_standard,
     )
-    used_subsample_len = (65 // step_length) * step_length
+    used_subsample_len = (97 // step_length) * step_length
 
     diff_means, diff_squares = [], []
 
