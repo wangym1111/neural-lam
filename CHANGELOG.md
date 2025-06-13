@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased](https://github.com/mllam/neural-lam/compare/v0.3.0...HEAD)
+## [unreleased](https://github.com/mllam/neural-lam/compare/v0.4.0...HEAD)
+
+## [v0.4.0](https://github.com/mllam/neural-lam/releases/tag/v0.4.0)
+
+This release introduces a number of improvements to logging, multi-node training and variable rescaling, without making any major changes to the neural-lam structure.
 
 ### Added
 
@@ -16,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [\#103](https://github.com/mllam/neural-lam/pull/103) @simonkamuk @sadamov
 
 - Add option to clamp output prediction using limits specified in config file [\#92](https://github.com/mllam/neural-lam/pull/92) @SimonKamuk
+
+- Add publication of releases to pypi.org. [\#71](https://github.com/mllam/neural-lam/pull/71) @leifdenby, @observingClouds
 
 ### Fixed
 - Only print on rank 0 to avoid duplicates of all print statements.
@@ -33,7 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Set ci/cd badges to refer to the new test matrix [\#130](https://github.com/mllam/neural-lam/pull/130) @SimonKamuk
 
+- use correct split of data with the `--eval val` or `--eval test` cli arguments [\#139](https://github.com/mllam/neural-lam/pull/139) @SimonKamuk
+
+- Fix step length calculation when dt >= 24h [\#141](https://github.com/mllam/neural-lam/pull/141) @deinal
+
 ### Maintenance
+- update ci/cd testing to use cuda 12.8 [\#140](https://github.com/mllam/neural-lam/pull/140) @SimonKamuk
+
+- update ci/cd testing to use pre-commit v3.0.1 [\#140](https://github.com/mllam/neural-lam/pull/140) @SimonKamuk
+
 - update AWS GPU ci/cd to use ami with larger (200GB) root volume and ensure
   nvme drive is used for pip venvn
   [\#126](https://github.com/mllam/neural-lam/pull/126), @leifdenby
